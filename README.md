@@ -1,417 +1,353 @@
-## 1. Introduction
-
-Aladdin Traffic Bot is a Python-based application using PyQt6 for the graphical user interface (GUI) and Playwright for browser automation. It is designed to simulate human-like browsing behavior on target websites. The primary stated goal is to generate website traffic, scrolling, and potential impressions/clicks, ostensibly to influence metrics like AdSense RPM.
-
-It incorporates various techniques to mimic human interaction and evade basic bot detection, including:
-
-*   Proxy rotation
-*   Browser fingerprint spoofing (User Agent, WebGL, Canvas, etc.)
-*   AI-driven user agent and fingerprint generation (via Google Gemini)
-*   Human-like scrolling patterns (including AI-generated)
-*   Simulated mouse movements
-*   Interaction with page elements (pagination, forms, potential ad clicks)
-*   Evasion of common automation detection flags
-
-### 1.1. Disclaimer (IMPORTANT!)
-
-**Using this bot, or any similar tool, to generate artificial traffic, impressions, or clicks on advertisements (like Google AdSense) is a direct and serious violation of the respective ad network's Terms of Service and policies against Invalid Traffic.**
-
-*   **High Risk of Account Suspension:** Attempting to inflate earnings or metrics using automated traffic is strictly prohibited and easily detectable by sophisticated anti-fraud systems. This will almost certainly lead to permanent suspension of your ad account(s) and forfeiture of any earnings.
-*   **No Guarantees:** Despite the bot's features, bypassing advanced detection systems (like Google's) is extremely difficult and unlikely in the long run.
-*   **Ethical Concerns:** Generating fake traffic undermines the advertising ecosystem.
-*   **Use at Your Own Absolute Risk:** The developers/providers of this code are not responsible for any consequences resulting from its use, including but not limited to ad account suspension, financial loss, or legal issues.
-
-**This documentation describes the technical functionality of the code provided. It does not endorse or recommend its use for violating AdSense or any other platform's policies.**
-
----
-
-## 2. Core Features
-
-*   **GUI:** User-friendly interface built with PyQt6 for configuration and monitoring.
-*   **Multi-Instance Support:** Run multiple bot instances concurrently using threading and grouping.
-*   **Proxy Management:**
-    *   Load proxies from file (`config/proxies.txt`).
-    *   Support for HTTP, HTTPS (treated as HTTP), SOCKS4, SOCKS5.
-    *   Built-in proxy checker using Playwright.
-    *   Optional proxy usage per bot instance, cycling through available proxies.
-*   **Advanced Fingerprinting:**
-    *   Spoof User-Agent, viewport, platform, vendor, languages, hardware concurrency, device memory, plugins, mimeTypes.
-    *   Spoof screen resolution, color depth.
-    *   Canvas fingerprinting noise injection.
-    *   WebGL vendor/renderer spoofing.
-    *   Timezone and locale spoofing.
-    *   Configuration via JSON profiles (`config/fingerprint_profiles.json`).
-    *   Option to use specific profiles, a random profile, or generate a new UA per bot.
-*   **AI-Powered Generation (Google Gemini):**
-    *   Generate realistic User-Agent strings (manually or automatically).
-    *   Generate complete browser fingerprint profiles (manually).
-    *   Generate human-like scrolling patterns.
-*   **Evasion Techniques:**
-    *   Hides `navigator.webdriver` flag via JavaScript.
-    *   Removes common detection variables (e.g., `cdc_`).
-    *   Uses Chromium launch flag (`--force-webrtc-ip-handling-policy`) to prevent WebRTC local IP leaks.
-    *   Includes JS hooks as a secondary attempt to filter WebRTC candidates.
-    *   Sends realistic `Sec-CH-UA` client hint headers.
-*   **Human-Like Behavior Simulation:**
-    *   Smooth scrolling animations using `requestAnimationFrame`.
-    *   Randomized scrolling patterns.
-    *   Optional AI-generated scroll patterns.
-    *   Simulated mouse cursor movement towards "important" elements (links, buttons, keywords).
-    *   Randomized delays between actions.
-    *   "Scanning" vs. "Reading" behavioral states influencing actions.
-    *   Probabilistic skipping of actions.
-*   **Interaction Features:**
-    *   **Impression Generation:** Navigate pagination links (Next Page, etc.).
-    *   **Ad Clicking:** Probabilistically find and click elements identified as ads (via selectors/iframes). Handles new tabs/popups.
-    *   **Form Filling:** Find and fill common form fields (text, email, select, textarea) with realistic data and simulated typos/corrections.
-*   **Custom Browser Support:** Option to use a custom Chromium build (e.g., "Chromium Blue").
-*   **Configuration:** Settings managed via `config/settings.py` and controllable through the GUI. Save/Load functionality.
-*   **Logging:** Detailed activity and error logs (`logs/bot_activity.log`, `logs/errors.log`) and per-bot logs in the GUI.
-*   **State Persistence:** Saves GUI settings and license status between sessions.
-
----
-
-## 3. Project Structure
-
-The bot automatically creates the following directory structure and essential files if they don't exist:
-
-```
-.
-├── aladdin_bot_script.py   # Main script file (or similar name)
-├── core/                   # Core bot logic classes (intended, currently integrated)
-├── config/                 # Configuration files
-│   ├── settings.py           # Main configuration (Editable Python dict)
-│   ├── proxies.txt           # List of proxies (one per line)
-│   └── fingerprint_profiles.json # Browser fingerprint profiles
-├── logs/                   # Log files
-│   ├── bot_activity.log    # General activity log
-│   └── errors.log          # Error log
-├── data/                   # Data files used by the bot
-│   ├── user_agents.json        # Static list of user agents
-│   ├── generated_user_agents.json # UAs generated by Gemini
-│   └── important_words.json    # Keywords for mouse hovering
-├── resources/              # Resource files (e.g., icons)
-│   └── chromium_blue.png     # Bot icon
-└── tests/                  # Placeholder for tests (intended)
-```
-
----
-
-## 4. Dependencies & Installation
-
-### 4.1. Python Libraries
+Thinking Process:
 
-The bot requires Python 3.x and the following libraries:
+Understand the Core Question: The user wants to know the step-by-step process of how the browser extension (after installation from the Chrome Web Store) connects to their remote RDP server and how the system works end-to-end from the user's perspective.
 
-*   **PyQt6:** For the graphical user interface.
-*   **playwright:** For browser automation.
-*   **google-generativeai:** For interacting with the Google Gemini API (User Agent/Fingerprint/Scroll generation).
-*   **Pillow:** (Optional, used to create a dummy icon if missing).
+Identify the Actors:
 
-Install them using pip:
+User
 
-```bash
-pip install PyQt6 playwright google-generativeai Pillow
-```
+User's Browser (Chrome, Edge, etc.)
 
-### 4.2. Playwright Browsers
+Al-Hudud Companion Browser Extension (Service Worker, Content Script, UI pages, local storage)
 
-Playwright needs browser binaries to function. After installing the library, you **must** install the browsers (Chromium is primarily used by this bot):
+Internet
 
-```bash
-playwright install chromium
-# Or install all default browsers:
-# playwright install
-```
+Your RDP Server (with FastAPI Backend, Database, Nginx/Caddy)
 
-The script includes a check on startup. If this fails, run the command above.
+Google Gemini API
 
-### 4.3. OS Dependencies (Linux)
+Map the Flow (User Installs -> Protection Works):
 
-On Linux systems, Playwright browsers might require additional operating system libraries. If you encounter issues launching browsers, run:
+Installation: User finds the extension on the Chrome Web Store and clicks "Add to Chrome".
 
-```bash
-# For Debian/Ubuntu based systems:
-sudo playwright install-deps chromium
-# Or install all dependencies:
-# sudo playwright install-deps
-```
+First Run / Installation Event: The browser downloads the extension files and installs them. The Service Worker (service-worker.js) is automatically registered and starts up. The chrome.runtime.onInstalled event fires in the Service Worker.
 
-Refer to the official [Playwright documentation](https://playwright.dev/python/docs/library#install-system-dependencies) for dependencies on other Linux distributions.
+Onboarding Trigger: The onInstalled listener in the Service Worker checks chrome.storage.sync. It finds the isOnboarded flag is missing or false. It sets the flag to false. It then modifies browser behavior so that the next page the user tries to visit (unless it's an internal browser page or about:blank) is redirected to the extension's local welcome.html page.
 
----
+Onboarding Flow: The user interacts with welcome.html, reads terms/privacy (terms.html, privacy.html). When they click "Agree and Start" on welcome.html, the onboarding.js script sends a message (action: "onboardingComplete") to the Service Worker.
 
-## 5. Configuration (`config/settings.py`)
+Onboarding Completion: The Service Worker receives the onboardingComplete message, sets isOnboarded: true in chrome.storage.sync, and removes the onboarding redirect rule. The user can now browse normally.
 
-Most bot behavior is controlled via the `config/settings.py` file. This file contains a Python dictionary defining various parameters. You can edit this file directly or modify settings through the GUI's "Settings" tab and use the "Save Settings" button.
+Initial Backend Connection (Passive): As part of the Service Worker's startup (which happens on installation and whenever the browser wakes it up), it executes the code to loadCache() from chrome.storage.local and fetchAndApplyBlacklist() from your backend (https://your-hudud-api.com/blacklist). This is the first active connection the extension makes to your RDP server.
 
-Default settings are defined in the script and used if the file is missing or a setting is absent.
+Blacklist Download: The fetchAndApplyBlacklist function makes an HTTP GET request to https://your-hudud-api.com/blacklist.
 
-### 5.1. Core & Control
+Backend Handles Blacklist Request: Your FastAPI backend receives this GET request. The /blacklist endpoint queries your database for the current list of harmful URL patterns.
 
-*   `TOTAL_RUNS` (int): Total number of bot instances to launch over the entire run.
-*   `CONCURRENT_BROWSERS` (int): [Currently less relevant due to grouping] Maximum number of browser instances allowed globally (legacy?).
-*   `RUN_GROUP_SIZE` (int): Number of bot instances to launch and run concurrently within a single group. The bot waits for one group to finish before starting the next.
-*   `LICENSE_KEY` (str): Stores the last entered license key (basic activation).
-*   `MIN_DELAY` (float): Minimum delay (in seconds) between actions within a bot instance.
-*   `MAX_DELAY` (float): Maximum delay (in seconds) between actions within a bot instance.
+Backend Sends Blacklist: The backend sends the list of patterns back to the Service Worker as a JSON array.
 
-### 5.2. Proxy
+Service Worker Updates Blocking Rules: The Service Worker receives the blacklist JSON. It uses the chrome.declarativeNetRequest.updateDynamicRules API to install these URL patterns as blocking/redirect rules directly in the browser's network engine. These rules are now active immediately.
 
-*   `PROXY_ENABLED` (bool): If `True`, the bot attempts to use proxies loaded from the proxy file.
-*   `PROXY_FILE` (str): Path to the text file containing proxies (default: `config/proxies.txt`).
+Background Blacklist Refresh: The Service Worker sets a timer (setTimeout) to fetch and update the blacklist again periodically (e.g., every hour).
 
-### 5.3. Browser & Launch
+User Browses - Scenario 1: Known Haram Site (Blacklisted):
 
-*   `HEADLESS` (bool): If `True`, runs browsers without a visible window. If `False`, browser windows will appear.
-*   `CHROMIUM_BLUE_ENABLED` (bool): If `True`, attempts to use a custom Chromium executable specified by `CHROMIUM_BLUE_PATH`.
-*   `CHROMIUM_BLUE_PATH` (str): Filesystem path to the custom Chromium executable.
-*   `CHROMIUM_BLUE_ARGS` (str): Space-separated extra command-line arguments to pass when launching the custom Chromium build.
+User types malicious-site.com.
 
-### 5.4. Fingerprinting & Evasion
+Browser initiates network request for malicious-site.com.
 
-*   `FINGERPRINT_PROFILE_NAME` (str): Determines the fingerprinting strategy.
-    *   Specific Profile Name (e.g., `"Default Realistic Chrome Win10"`): Uses the profile defined in `fingerprint_profiles.json`.
-    *   `"Random"`: Selects a random profile from the JSON file for each bot instance.
-    *   `"Generate & Use New UA"`: Generates a unique User Agent via Gemini for each bot instance and applies settings from a base profile (defaults to "Default Realistic Chrome Win10").
-*   `DISABLE_AUTOMATION_FLAGS` (bool): If `True`, injects JavaScript to hide `navigator.webdriver` and other common automation flags.
-*   `PREVENT_WEBRTC_IP_LEAK` (bool): If `True`, applies Chromium launch flag (`--force-webrtc-ip-handling-policy`) and JS hooks to prevent WebRTC from leaking local IP addresses. **Requires SOCKS5 proxy to also hide the public IP effectively via WebRTC.**
-*   `USER_AGENT_SOURCE` (str): [Currently less used] Intended for future expansion (e.g., "Static", "Generated", "Combined"). Fingerprint selection logic handles this now.
-*   `FINGERPRINT_FILE` (str): Path to the JSON file containing fingerprint profiles (default: `config/fingerprint_profiles.json`).
-*   `VIEWPORT_MIN_WIDTH`, `VIEWPORT_MAX_WIDTH` (int): Range for random browser viewport width.
-*   `VIEWPORT_MIN_HEIGHT`, `VIEWPORT_MAX_HEIGHT` (int): Range for random browser viewport height.
+The declarativeNetRequest rules (installed by your Service Worker from the blacklist) are checked by the browser itself before the request even leaves the browser process.
 
-### 5.5. User Agent Generation (Gemini)
+A rule matches malicious-site.com.
 
-*   `GEMINI_API_KEY` (str): Your Google Gemini API key. **Required for all generation features.**
-*   `USER_AGENT_GENERATION_ENABLED` (bool): If `True`, the bot will automatically generate new User Agents using Gemini when the existing pool (static + previously generated) is exhausted during a run.
-*   `USER_AGENT_GENERATION_COUNT` (int): How many User Agents to generate automatically when triggered.
-*   `USER_AGENTS_FILE` (str): Path to the JSON file for the static list of user agents (default: `data/user_agents.json`).
-*   `GENERATED_USER_AGENTS_FILE` (str): Path to the JSON file where automatically and manually generated user agents are stored (default: `data/generated_user_agents.json`).
+The browser's network engine immediately intercepts and redirects the request to the safe_page.html URL, as specified in the rule.
 
-### 5.6. Behavior Simulation
+The original page (malicious-site.com) is never loaded.
 
-*   `MOUSE_MOVEMENT_ENABLED` (bool): If `True`, simulates mouse cursor movements.
-*   `SCROLL_DURATION_MIN`, `SCROLL_DURATION_MAX` (int): Range (in milliseconds) for the duration of individual smooth scroll animations during *random* scrolling.
-*   `ENABLE_BEHAVIORAL_STATES` (bool): If `True`, the bot alternates between "Scanning" and "Reading" states, slightly influencing scroll speed and mouse movement frequency.
-*   `SKIP_ACTION_PROBABILITY` (float): Probability (0.0 to 1.0) of randomly skipping a planned action (scroll, mouse move, click, etc.) in an interaction cycle.
-*   `IMPORTANT_WORDS_FILE` (str): Path to the JSON file containing keywords used to guide simulated mouse hovering (default: `data/important_words.json`).
+The Service Worker might get a notification about the block (onRuleMatchedDebug), but it doesn't need to perform complex logic.
 
-### 5.7. Interaction Features
+The user sees the local safe_page.html.
 
-*   `FORM_FILL_ENABLED` (bool): If `True`, the bot will attempt to find and fill forms on pages.
-*   `IMPRESSION_ENABLED` (bool): If `True`, the bot will attempt to find and click pagination links (Next Page, etc.).
-*   `NEXT_PAGE_SELECTORS` (List[str]): List of CSS selectors used to identify "next page" links/buttons.
-*   `NEXT_PAGE_TEXT_FALLBACK` (List[str]): List of link/button text values to check if selectors fail (e.g., "Next", ">", "Next Page").
-*   `AD_CLICK_ENABLED` (bool): If `True`, the bot will attempt to identify and click elements likely to be ads.
-*   `AD_SELECTORS` (List[str]): List of CSS selectors used to identify potential ad elements (e.g., `.advertisement`, `ins.adsbygoogle`, `iframe[id*='google_ads']`).
-*   `AD_CLICK_PROBABILITY` (float): Probability (0.0 to 1.0) that the bot will click an ad *if* one is found and `AD_CLICK_ENABLED` is true.
+User Browses - Scenario 2: Unknown or Potentially Haram Site (Not Blacklisted):
 
----
+User types unknown-site.com.
 
-## 6. Data Files
+Browser initiates network request. No declarativeNetRequest rule matches.
 
-*   `config/settings.py`: Main configuration file (see section 5).
-*   `config/proxies.txt`: Stores proxies, one per line. Format: `HOST:PORT`, `USER:PASS@HOST:PORT`. Optionally specify type (http, https, socks4, socks5) after the address, separated by space (e.g., `1.2.3.4:8080 http`, `myuser:mypass@4.3.2.1:1080 socks5`). If type is omitted, `http` is assumed.
-*   `config/fingerprint_profiles.json`: Stores detailed browser fingerprint profiles in JSON format. Includes definitions for navigator properties, screen, canvas, WebGL, timezone etc. Can be generated via Gemini or manually edited.
-*   `data/user_agents.json`: A static list of fallback User-Agent strings.
-*   `data/generated_user_agents.json`: Stores User-Agent strings generated via the Gemini API (manual or automatic).
-*   `data/important_words.json`: A list of keywords (e.g., "Contact", "Price", "Download") that the bot uses to guide simulated mouse movements towards potentially relevant page elements.
-*   `logs/bot_activity.log`: General log file recording major actions and events across all bots.
-*   `logs/errors.log`: Detailed log file specifically for errors and exceptions.
+The request proceeds. The server (unknown-site.com) responds with the page content.
 
----
+As the browser starts building the page (at document_start), the content-script.js is injected into unknown-site.com.
 
-## 7. Usage Guide (GUI)
+Content script injects CSS, shows the "Scanning..." overlay.
 
-### 7.1. Running the Bot
+Content script waits a short delay (setTimeout).
 
-Execute the main Python script from your terminal:
+Content script extracts text and image URLs from the partially loaded page.
 
-```bash
-python your_script_name.py
-```
+Content script sends an analyzeContent message to the Service Worker.
 
-(Replace `your_script_name.py` with the actual filename).
+Service Worker receives analyzeContent.
 
-### 7.2. Main Control Tab
+Service Worker checks its local analysisCache (chrome.storage.local) for unknown-site.com. Cache Miss.
 
-*   **URLs:** Enter the target website URLs, one per line. Must start with `http://` or `https://`.
-*   **Proxies:**
-    *   **List:** Displays loaded proxies. Status indicators (colored circles) show validation results (Orange: Unchecked, Blue: Checking, Green: Valid, Red: Invalid).
-    *   **Load:** Loads proxies from the file specified in `PROXY_FILE` (usually `config/proxies.txt`).
-    *   **Check:** Initiates a connectivity check for all loaded proxies in the background. Buttons are disabled during the check.
-    *   **Clear:** Removes all proxies from the list.
-*   **Run Configuration:**
-    *   **Total Bot Instances:** The total number of bot sessions to run across all groups.
-    *   **Concurrent Instances per Group:** How many bots run simultaneously in each batch.
-*   **Controls:**
-    *   **Start Bot(s):** Begins the bot execution process based on the current configuration.
-    *   **Stop All Bots:** Attempts to gracefully stop all currently running bot threads.
-*   **Bot Logs:**
-    *   A tabbed view showing real-time logs for each individual bot instance. Tabs are created as bots launch.
-    *   Tabs for bots encountering critical errors are highlighted in red.
+Service Worker prepares a request payload (text, images, URL) and makes an HTTP POST request to your remote backend's /analyze endpoint (https://your-hudud-api.com/analyze).
 
-### 7.3. Settings Tab
+Your FastAPI backend receives the POST request.
 
-This tab allows modification of most settings found in `config/settings.py`. Changes made here are used when "Start Bot(s)" is clicked.
+FastAPI calls the GeminiAnalyzer using your pre-configured Gemini API key.
 
-*   **General:** Headless mode, Min/Max action delays.
-*   **Proxy:** Enable/Disable proxy usage globally.
-*   **Fingerprinting & Evasion:** Select fingerprint mode (Profile, Random, Generate), toggle automation flag hiding, toggle WebRTC leak prevention. Includes button to manually generate a new fingerprint profile via Gemini.
-*   **User Agent Generation (Gemini):** Input Gemini API Key, enable/disable automatic UA generation, set auto-generation count. Includes controls for manually generating a specified number of UAs.
-*   **Behavior Simulation:** Enable/Disable mouse movement, configure scroll animation duration, enable/disable behavioral states, set action skip probability.
-*   **Interaction Features:** Enable/Disable form filling, impression/pagination, ad clicking. Configure selectors and text fallbacks for pagination, set ad click probability, configure ad selectors.
-*   **Advanced / Custom Browser:** Enable custom Chromium, specify path and arguments.
-*   **Save/Load Buttons:**
-    *   **Load Settings:** Loads configuration from `config/settings.py`, overwriting current UI settings.
-    *   **Save Settings:** Saves the current UI settings to `config/settings.py`, overwriting the file.
+GeminiAnalyzer fetches images (if any) and sends text/image data to the Google Gemini API.
 
-### 7.4. License Tab
+Google Gemini API processes the content and returns a classification (safe, potentially_inappropriate, haram_or_illegal).
 
-*   **License Key:** Input field for the activation key.
-*   **Activate License:** Attempts to validate and activate the entered key.
-*   **Status:** Displays the current license status (Unknown, Active + Expiry, Expired, Invalid).
+GeminiAnalyzer parses the result, generates advice, and determines the suggestedAction (none, warn, block).
 
----
+FastAPI backend returns the analysis result (classification, reason, advice, suggested action) to the Service Worker.
 
-## 8. Fingerprint & User Agent Generation
+Service Worker receives the result.
 
-The bot uses Google's Gemini API for advanced generation features, aiming for more unique and realistic browser profiles.
+Service Worker saves the result to its local analysisCache for faster access next time.
 
-### 8.1. Gemini API Key
+Service Worker checks the user's settings (strictMode, enableBlur) from chrome.storage.sync.
 
-A valid Google Gemini API Key is **required** for:
+Based on the suggestedAction and user settings, the Service Worker determines the finalAction (none, warn, show_block_overlay, redirect).
 
-*   Generating User Agents (manual or automatic).
-*   Generating full Fingerprint Profiles (manual).
-*   Generating AI-driven scroll patterns (optional behavior).
+If finalAction is redirect, the Service Worker immediately updates the tab's URL to safe_page.html.
 
-Enter the key in the "Settings" tab -> "User Agent Generation (Gemini)" section.
+If finalAction is warn or show_block_overlay, the Service Worker sends a message back to the content script on unknown-site.com instructing it to display the warning or block overlay and potentially apply blur.
 
-### 8.2. Fingerprint Profiles (`config/fingerprint_profiles.json`)
+If finalAction is none, the Service Worker sends a message to the content script to remove the scanning overlay.
 
-This JSON file defines detailed browser fingerprints.
+The content script receives the message and updates the page UI accordingly.
 
-*   It contains a list under the `"profiles"` key.
-*   Each profile is an object with keys like `"name"`, `"description"`, `"navigator"`, `"screen"`, `"canvas"`, `"webgl"`, `"timezone"`.
-*   The `"navigator"` object includes `user_agent`, `platform`, `vendor`, `languages`, `plugins`, `mimeTypes`, `hardwareConcurrency`, `deviceMemory`.
-*   Defaults are created if the file is missing.
-*   You can manually edit this file or use the "Generate New Profile (via Gemini)" button in Settings (requires API Key).
+User Browses - Scenario 3: Previously Analyzed Site (Cached):
 
-### 8.3. Fingerprint Modes
+User types potentially-risky-site.com (same site as Scenario 2, visited again soon).
 
-Selected via the "Fingerprint Mode" dropdown in Settings:
+Browser initiates request. No declarativeNetRequest rule matches.
 
-1.  **Specific Profile Name:** Uses the exact profile selected from the list (loaded from `fingerprint_profiles.json`).
-2.  **`Random`:** Chooses a random profile from `fingerprint_profiles.json` for each new bot instance.
-3.  **`Generate & Use New UA`:**
-    *   Calls the Gemini API to generate a *single new User Agent string* for the bot instance.
-    *   Saves this new UA to `data/generated_user_agents.json` if unique.
-    *   Applies other fingerprint settings (WebGL, Canvas, etc.) from a *base profile* (usually the "Default Realistic Chrome Win10" profile, or another if specified/available).
+Page load starts, content-script.js injects, shows "Scanning...".
 
-### 8.4. Manual UA Generation
+Content script waits delay, extracts content, sends analyzeContent to Service Worker.
 
-*   Go to "Settings" -> "User Agent Generation (Gemini)".
-*   Enter your Gemini API Key.
-*   Set the desired number of UAs to generate.
-*   Click "Generate Now".
-*   The bot calls Gemini, parses the results, filters out duplicates, and saves unique new UAs to `data/generated_user_agents.json`.
-*   A status message indicates success or failure.
+Service Worker receives message, checks analysisCache for potentially-risky-site.com. Cache Hit! And the entry is not expired.
 
-### 8.5. Manual Fingerprint Profile Generation
+Service Worker uses the cached result (classification, reason, advice, suggestedAction).
 
-*   Go to "Settings" -> "Fingerprinting & Evasion".
-*   Ensure your Gemini API Key is entered in the UA Gen section.
-*   Click "Generate New Profile (via Gemini)".
-*   The bot prompts Gemini for a complete, consistent profile in JSON format.
-*   It validates the response structure.
-*   If valid, it appends the new profile to `config/fingerprint_profiles.json` (checking for name uniqueness) and refreshes the "Fingerprint Mode" dropdown.
-*   A status message indicates success or failure.
+Service Worker skips the backend API call.
 
-### 8.6. Automatic UA Generation
+Service Worker determines finalAction based on cached suggestedAction and current user settings.
 
-*   Requires `USER_AGENT_GENERATION_ENABLED = True` in settings and a valid `GEMINI_API_KEY`.
-*   If the bot runs out of unique User Agents from `user_agents.json` and `generated_user_agents.json` during a run, it will automatically trigger a call to Gemini to generate `USER_AGENT_GENERATION_COUNT` new UAs.
-*   These are saved to `generated_user_agents.json`, and the bot continues using the newly available pool.
+Service Worker sends action message to content script (e.g., warn with cached reason/advice).
 
----
+Content script displays the warning overlay much faster than the first time.
 
-## 9. Proxy Management
+Incognito Mode: If the user has manually enabled "Allow in Incognito" in the browser's extension settings, the Service Worker and Content Script run in Incognito windows just like normal windows. They perform the same logic (onboarding check - should be marked complete already, blacklist check, cache check, backend analysis, UI actions).
 
-### 9.1. Loading Proxies (`config/proxies.txt`)
+VPNs: A VPN encrypts traffic from your browser to the VPN server, and then from the VPN server to the final destination. However, the Al-Hudud Companion extension operates within the browser process itself. The Service Worker intercepts URLs before the browser sends them out, and the Content Script analyzes the page DOM after the browser receives it. The VPN does not hide this internal browser activity from the extension. Therefore, the extension will work correctly regardless of VPN use. The connection from your Service Worker to your backend API will also typically go through the user's VPN, but this just means the connection appears to originate from the VPN server's IP address, which is normal and doesn't affect the functionality.
 
-*   Add proxies to `config/proxies.txt`, one per line.
-*   Supported formats:
-    *   `HOST:PORT` (defaults to HTTP)
-    *   `USER:PASS@HOST:PORT` (defaults to HTTP)
-    *   `HOST:PORT TYPE` (e.g., `1.2.3.4:8080 http`, `1.2.3.4:1080 socks5`)
-    *   `USER:PASS@HOST:PORT TYPE`
-*   Valid types: `http`, `https` (treated as `http` for Playwright), `socks4`, `socks5`.
-*   Use the "Load" button on the Main tab to load/reload proxies into the GUI list.
+Summary - How it Works:
 
-### 9.2. Checking Proxies
+Installation: User adds from Chrome Web Store. Service Worker starts.
 
-*   Click the "Check" button on the Main tab.
-*   This launches background threads to test connectivity for each loaded proxy using Playwright against a test URL (like `api.ipify.org`).
-*   The GUI list updates visually:
-    *   Orange Circle: Unchecked
-    *   Blue Circle: Checking
-    *   Green Circle: Valid (connected successfully)
-    *   Red Circle: Invalid (connection failed, timed out, or invalid format)
-*   A summary message appears upon completion.
+Onboarding: First browser window redirects user to extension's welcome.html. User agrees to terms.
 
-### 9.3. Proxy Usage
+Initial Setup: Service Worker loads local cache and fetches the latest harmful URL blacklist from your hosted FastAPI backend.
 
-*   Enable proxy usage via the "Enable Proxy Usage" checkbox in Settings.
-*   If enabled:
-    *   If **valid** proxies exist (checked green), the bot cycles through only the valid ones, assigning one to each bot instance.
-    *   If **no valid** proxies exist, the user is prompted whether to proceed using *any* loaded proxy (including unchecked or invalid). If yes, the bot cycles through all loaded proxies.
-    *   If proxies are enabled but none are loaded, the bot will refuse to start.
-*   **Note:** For effective WebRTC IP leak prevention (hiding public IP), **SOCKS5 proxies are strongly recommended** when `PREVENT_WEBRTC_IP_LEAK` is enabled. HTTP/HTTPS proxies typically won't mask the public IP through WebRTC, even with the flag enabled (though the flag still helps hide local IPs).
+Pre-load Blocking: The downloaded blacklist is installed directly into the browser's network engine (declarativeNetRequest). If a user tries to visit a blacklisted URL, the browser instantly redirects them to safe_page.html before any content loads.
 
----
+Content Analysis (for non-blacklisted sites):
 
-## 10. Logging
+Content script injects into page, extracts content (text, images).
 
-*   **GUI Logs:** Real-time logs for each bot instance appear in the tabs on the Main Control page. General status messages may also appear in the currently selected tab. Error tabs turn red.
-*   **File Logs:**
-    *   `logs/bot_activity.log`: Records high-level actions, bot start/stop events, and general information. Log level adjustable via `LOG_LEVEL` environment variable (default: INFO).
-    *   `logs/errors.log`: Records detailed error messages, exceptions, and stack traces for debugging.
+Content script sends data to Service Worker.
 
----
+Service Worker checks its local cache.
 
-## 11. Troubleshooting
+If not cached or expired, Service Worker sends the content data to your hosted FastAPI backend for AI analysis using your Gemini key.
 
-*   **Playwright Browser Issues:** If the bot fails to start with errors mentioning "Executable doesn't exist" or "missing dependencies":
-    *   Run `playwright install chromium` in your terminal.
-    *   On Linux, try `sudo playwright install-deps chromium`.
-*   **Gemini API Errors:** If UA/Fingerprint/Scroll generation fails:
-    *   Ensure a **valid** Google Gemini API Key is entered in Settings.
-    *   Check your Gemini account for usage limits or billing issues.
-    *   Check `logs/errors.log` for specific API error messages from Google.
-    *   Network issues might prevent reaching the API.
-*   **Proxy Errors:** If bots fail to connect:
-    *   Use the "Check" button to validate proxies.
-    *   Ensure proxies are in the correct format in `proxies.txt`.
-    *   Verify the proxy provider allows connections from your IP and to the target sites.
-    *   Remember SOCKS5 is best for privacy with WebRTC enabled.
-*   **Bot Errors / Crashes:** Check the specific bot's log tab in the GUI and the `logs/errors.log` file for detailed error messages.
+Backend uses Gemini to analyze and determine a suggested action (none, warn, block).
 
----
+Backend sends result back to Service Worker.
 
-## 12. Final Disclaimer & Warning
+Service Worker saves result to local cache.
 
-**This software is provided for educational and research purposes only.**
+Service Worker combines backend's suggestion with user's settings (from chrome.storage.sync) to decide the final action.
 
-**Automated interaction with websites, especially for the purpose of manipulating advertising metrics (like AdSense RPM) through artificial traffic, impressions, or clicks, is strictly prohibited by the terms of service of most platforms, including Google AdSense.**
+Service Worker tells the content script (for overlays/blur) or the browser (for redirects) to execute the final action.
 
-**Engaging in such activities carries a very high risk of detection and will likely result in severe consequences, including but not limited to:**
+Local Cache Benefit: If a user revisits a page that was previously analyzed and cached, the Service Worker uses the local cached result, skipping the backend/AI call, making the response much faster.
 
-*   **Permanent suspension of your advertising accounts (e.g., AdSense).**
-*   **Forfeiture of any accrued earnings.**
-*   **Potential legal action.**
+Admin Panel: You (as the admin) access a separate web interface (your AdminPanelUI) which talks to the /admin endpoints on your hosted FastAPI backend to update the blacklist, which then gets fetched by user extensions periodically.
 
-**The creators and distributors of this software are not responsible for any misuse or any negative consequences arising from its use. You assume all risks and responsibilities associated with using this tool.**
+This system is designed so the end-user simply installs, goes through a quick agreement, and then the protection works automatically in the background, connecting to your central server for the heavy lifting (AI analysis, central blacklist).
 
-**Do NOT use this bot on websites or ad accounts you are not explicitly authorized to test in this manner, and never use it in a way that violates any platform's terms of service.**
+May Allah grant you success in implementing and launching this beneficial tool!
+
+
+
+Thinking Process:
+
+Understand the Core Question: The user wants to know the step-by-step process of how the browser extension (after installation from the Chrome Web Store) connects to their remote RDP server and how the system works end-to-end from the user's perspective.
+
+Identify the Actors:
+
+User
+
+User's Browser (Chrome, Edge, etc.)
+
+Al-Hudud Companion Browser Extension (Service Worker, Content Script, UI pages, local storage)
+
+Internet
+
+Your RDP Server (with FastAPI Backend, Database, Nginx/Caddy)
+
+Google Gemini API
+
+Map the Flow (User Installs -> Protection Works):
+
+Installation: User finds the extension on the Chrome Web Store and clicks "Add to Chrome".
+
+First Run / Installation Event: The browser downloads the extension files and installs them. The Service Worker (service-worker.js) is automatically registered and starts up. The chrome.runtime.onInstalled event fires in the Service Worker.
+
+Onboarding Trigger: The onInstalled listener in the Service Worker checks chrome.storage.sync. It finds the isOnboarded flag is missing or false. It sets the flag to false. It then modifies browser behavior so that the next page the user tries to visit (unless it's an internal browser page or about:blank) is redirected to the extension's local welcome.html page.
+
+Onboarding Flow: The user interacts with welcome.html, reads terms/privacy (terms.html, privacy.html). When they click "Agree and Start" on welcome.html, the onboarding.js script sends a message (action: "onboardingComplete") to the Service Worker.
+
+Onboarding Completion: The Service Worker receives the onboardingComplete message, sets isOnboarded: true in chrome.storage.sync, and removes the onboarding redirect rule. The user can now browse normally.
+
+Initial Backend Connection (Passive): As part of the Service Worker's startup (which happens on installation and whenever the browser wakes it up), it executes the code to loadCache() from chrome.storage.local and fetchAndApplyBlacklist() from your backend (https://your-hudud-api.com/blacklist). This is the first active connection the extension makes to your RDP server.
+
+Blacklist Download: The fetchAndApplyBlacklist function makes an HTTP GET request to https://your-hudud-api.com/blacklist.
+
+Backend Handles Blacklist Request: Your FastAPI backend receives this GET request. The /blacklist endpoint queries your database for the current list of harmful URL patterns.
+
+Backend Sends Blacklist: The backend sends the list of patterns back to the Service Worker as a JSON array.
+
+Service Worker Updates Blocking Rules: The Service Worker receives the blacklist JSON. It uses the chrome.declarativeNetRequest.updateDynamicRules API to install these URL patterns as blocking/redirect rules directly in the browser's network engine. These rules are now active immediately.
+
+Background Blacklist Refresh: The Service Worker sets a timer (setTimeout) to fetch and update the blacklist again periodically (e.g., every hour).
+
+User Browses - Scenario 1: Known Haram Site (Blacklisted):
+
+User types malicious-site.com.
+
+Browser initiates network request for malicious-site.com.
+
+The declarativeNetRequest rules (installed by your Service Worker from the blacklist) are checked by the browser itself before the request even leaves the browser process.
+
+A rule matches malicious-site.com.
+
+The browser's network engine immediately intercepts and redirects the request to the safe_page.html URL, as specified in the rule.
+
+The original page (malicious-site.com) is never loaded.
+
+The Service Worker might get a notification about the block (onRuleMatchedDebug), but it doesn't need to perform complex logic.
+
+The user sees the local safe_page.html.
+
+User Browses - Scenario 2: Unknown or Potentially Haram Site (Not Blacklisted):
+
+User types unknown-site.com.
+
+Browser initiates network request. No declarativeNetRequest rule matches.
+
+The request proceeds. The server (unknown-site.com) responds with the page content.
+
+As the browser starts building the page (at document_start), the content-script.js is injected into unknown-site.com.
+
+Content script injects CSS, shows the "Scanning..." overlay.
+
+Content script waits a short delay (setTimeout).
+
+Content script extracts text and image URLs from the partially loaded page.
+
+Content script sends an analyzeContent message to the Service Worker.
+
+Service Worker receives analyzeContent.
+
+Service Worker checks its local analysisCache (chrome.storage.local) for unknown-site.com. Cache Miss.
+
+Service Worker prepares a request payload (text, images, URL) and makes an HTTP POST request to your remote backend's /analyze endpoint (https://your-hudud-api.com/analyze).
+
+Your FastAPI backend receives the POST request.
+
+FastAPI calls the GeminiAnalyzer using your pre-configured Gemini API key.
+
+GeminiAnalyzer fetches images (if any) and sends text/image data to the Google Gemini API.
+
+Google Gemini API processes the content and returns a classification (safe, potentially_inappropriate, haram_or_illegal).
+
+GeminiAnalyzer parses the result, generates advice, and determines the suggestedAction (none, warn, block).
+
+FastAPI backend returns the analysis result (classification, reason, advice, suggested action) to the Service Worker.
+
+Service Worker receives the result.
+
+Service Worker saves the result to its local analysisCache for faster access next time.
+
+Service Worker checks the user's settings (strictMode, enableBlur) from chrome.storage.sync.
+
+Based on the suggestedAction and user settings, the Service Worker determines the finalAction (none, warn, show_block_overlay, redirect).
+
+If finalAction is redirect, the Service Worker immediately updates the tab's URL to safe_page.html.
+
+If finalAction is warn or show_block_overlay, the Service Worker sends a message back to the content script on unknown-site.com instructing it to display the warning or block overlay and potentially apply blur.
+
+If finalAction is none, the Service Worker sends a message to the content script to remove the scanning overlay.
+
+The content script receives the message and updates the page UI accordingly.
+
+User Browses - Scenario 3: Previously Analyzed Site (Cached):
+
+User types potentially-risky-site.com (same site as Scenario 2, visited again soon).
+
+Browser initiates request. No declarativeNetRequest rule matches.
+
+Page load starts, content-script.js injects, shows "Scanning...".
+
+Content script waits delay, extracts content, sends analyzeContent to Service Worker.
+
+Service Worker receives message, checks analysisCache for potentially-risky-site.com. Cache Hit! And the entry is not expired.
+
+Service Worker uses the cached result (classification, reason, advice, suggestedAction).
+
+Service Worker skips the backend API call.
+
+Service Worker determines finalAction based on cached suggestedAction and current user settings.
+
+Service Worker sends action message to content script (e.g., warn with cached reason/advice).
+
+Content script displays the warning overlay much faster than the first time.
+
+Incognito Mode: If the user has manually enabled "Allow in Incognito" in the browser's extension settings, the Service Worker and Content Script run in Incognito windows just like normal windows. They perform the same logic (onboarding check - should be marked complete already, blacklist check, cache check, backend analysis, UI actions).
+
+VPNs: A VPN encrypts traffic from your browser to the VPN server, and then from the VPN server to the final destination. However, the Al-Hudud Companion extension operates within the browser process itself. The Service Worker intercepts URLs before the browser sends them out, and the Content Script analyzes the page DOM after the browser receives it. The VPN does not hide this internal browser activity from the extension. Therefore, the extension will work correctly regardless of VPN use. The connection from your Service Worker to your backend API will also typically go through the user's VPN, but this just means the connection appears to originate from the VPN server's IP address, which is normal and doesn't affect the functionality.
+
+Summary - How it Works:
+
+Installation: User adds from Chrome Web Store. Service Worker starts.
+
+Onboarding: First browser window redirects user to extension's welcome.html. User agrees to terms.
+
+Initial Setup: Service Worker loads local cache and fetches the latest harmful URL blacklist from your hosted FastAPI backend.
+
+Pre-load Blocking: The downloaded blacklist is installed directly into the browser's network engine (declarativeNetRequest). If a user tries to visit a blacklisted URL, the browser instantly redirects them to safe_page.html before any content loads.
+
+Content Analysis (for non-blacklisted sites):
+
+Content script injects into page, extracts content (text, images).
+
+Content script sends data to Service Worker.
+
+Service Worker checks its local cache.
+
+If not cached or expired, Service Worker sends the content data to your hosted FastAPI backend for AI analysis using your Gemini key.
+
+Backend uses Gemini to analyze and determine a suggested action (none, warn, block).
+
+Backend sends result back to Service Worker.
+
+Service Worker saves result to local cache.
+
+Service Worker combines backend's suggestion with user's settings (from chrome.storage.sync) to decide the final action.
+
+Service Worker tells the content script (for overlays/blur) or the browser (for redirects) to execute the final action.
+
+Local Cache Benefit: If a user revisits a page that was previously analyzed and cached, the Service Worker uses the local cached result, skipping the backend/AI call, making the response much faster.
+
+Admin Panel: You (as the admin) access a separate web interface (your AdminPanelUI) which talks to the /admin endpoints on your hosted FastAPI backend to update the blacklist, which then gets fetched by user extensions periodically.
+
+This system is designed so the end-user simply installs, goes through a quick agreement, and then the protection works automatically in the background, connecting to your central server for the heavy lifting (AI analysis, central blacklist).
+
+May Allah grant you success in implementing and launching this beneficial tool!
